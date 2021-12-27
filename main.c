@@ -1,22 +1,32 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <pthread.h>
+
+void *
+Tchild (void *args)
+{
+  /* POTENTIALLY DANGEROUS TIMING */
+  int *argptr = (int *) args;
+  int arg = *argptr;
+
+  /* Print the local copy of the argument */
+  printf ("Argument is %d\n", arg);
+  pthread_exit (NULL);
+}
 
 int main(int argc, char ** argv) {
-    int minimum = 2147483647;
-    int maximum = 0;
-    int big_buf[1024+1] = {0};
-    for(int i=0; i<1024; ++i){
-        big_buf[i] = rand();
-        // printf("%d, ", big_buf[i]);
-    }
-    minimum = big_buf[0];
-    maximum = big_buf[0];
-    for(int i=1; i<1024; ++i){
-        if (big_buf[i] < minimum)
-            minimum = big_buf[i];
-        else if (big_buf[i] > maximum)
-            maximum = big_buf[i];
-    }
-    printf("Success! maximum = %-10d and minimum = %-10d\n", maximum, minimum);
+    pthread_t child_thread[11];
+    int listi[11] = {0};
+
+    for (int i = 1; i <= 10; i++)
+        listi[i] = i;
+
+    for (int i = 1; i <= 10; i++)
+        assert (pthread_create (&child_thread[i], NULL, Tchild, (void*)&listi[i]) == 0);
+
+    for (int i = 1; i <= 10; i++)
+        pthread_join (child_thread[i], NULL);
+
     return 0;
 }
