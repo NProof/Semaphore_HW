@@ -5,6 +5,7 @@
 
 struct thread_args {
     int *big_buf;
+    int zone;
 };
 
 struct results {
@@ -17,9 +18,11 @@ void *parallel_thread(void *_args) {
 
     struct results *rels = calloc (sizeof (struct results), 1);
     int * big_buf = args->big_buf;
-    int min = big_buf[0];
-    int max = big_buf[0];
-    for(int i=1; i<1024; ++i){
+    int zone = args->zone;
+
+    int min = big_buf[256*zone];
+    int max = big_buf[256*zone];
+    for(int i=256*zone+1; i<256*(zone+1); ++i){
         if (big_buf[i] < min)
             min = big_buf[i];
         else if (big_buf[i] > max)
@@ -34,26 +37,35 @@ void *parallel_thread(void *_args) {
 int main(int argc, char ** argv) {
     int minimum = 2147483647;
     int maximum = 0;
+    
     int big_buf[1024+1] = {0};
     for(int i=0; i<1024; ++i){
         big_buf[i] = rand();
     }
 
-    pthread_t p1;
+    pthread_t p[4];
 
-    struct thread_args *args = malloc(sizeof (struct thread_args) );
-    args->big_buf = big_buf;
+    for(int i=0; i<4; ++i) {
+        struct thread_args *args = malloc(sizeof (struct thread_args) );
+        args->big_buf = big_buf;
+        args->zone = i;
+        assert( pthread_create (&p[i], NULL, parallel_thread, args) == 0);
+    }
 
-    assert( pthread_create (&p1, NULL, parallel_thread, args) == 0);
-
-    struct results *rels[1];
+    struct results *rels[4];
     
-    pthread_join (p1, (void **) &rels[0]);
+    for(int i=0; i<4; ++i)
+       pthread_join (p[i], (void **) &rels[i]);
 
-    minimum = rels[0]->min;
-    maximum = rels[0]->max;
+    for(int i=0; i<4; ++i) {
+        if (rels[i]->min < minimum)
+            minimum = rels[i]->min;
+        if (rels[i]->max > maximum)
+            maximum = rels[i]->max;
+    }
 
-    free(rels[0]);
+    for(int i=0; i<4; ++i)
+       free(rels[i]);
 
     printf("Success! maximum = %-10d and minimum = %-10d\n", maximum, minimum);
     pthread_exit (NULL);
