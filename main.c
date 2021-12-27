@@ -5,12 +5,17 @@
 
 struct thread_args {
     int *big_buf;
+};
+
+struct results {
     int min;
     int max;
 };
 
 void *parallel_thread(void *_args) {
     struct thread_args *args = (struct thread_args *) _args;
+
+    struct results *rels = calloc (sizeof (struct results), 1);
     int * big_buf = args->big_buf;
     int min = big_buf[0];
     int max = big_buf[0];
@@ -20,11 +25,10 @@ void *parallel_thread(void *_args) {
         else if (big_buf[i] > max)
             max = big_buf[i];
     }
-    printf ("min: %d; max: %d\n", min, max);
-    args->min = min;
-    args->max = max;
+    rels->min = min;
+    rels->max = max;
     free(args);
-    pthread_exit(NULL);
+    pthread_exit(rels);
 }
 
 int main(int argc, char ** argv) {
@@ -41,10 +45,15 @@ int main(int argc, char ** argv) {
     args->big_buf = big_buf;
 
     assert( pthread_create (&p1, NULL, parallel_thread, args) == 0);
-    pthread_join (p1, NULL);
 
-    minimum = args->min;
-    maximum = args->max;
+    struct results *rels[1];
+    
+    pthread_join (p1, (void **) &rels[0]);
+
+    minimum = rels[0]->min;
+    maximum = rels[0]->max;
+
+    free(rels[0]);
 
     printf("Success! maximum = %-10d and minimum = %-10d\n", maximum, minimum);
     pthread_exit (NULL);
