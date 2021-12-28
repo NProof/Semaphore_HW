@@ -31,10 +31,8 @@ struct results {
 
 sem_t min_mutex;
 sem_t min_full;
-// sem_t min_empty;
 sem_t max_mutex;
 sem_t max_full;
-// sem_t max_empty;
 
 void *producer(void *_args) {
     struct p_args *args = (struct p_args *) _args;
@@ -52,7 +50,6 @@ void *producer(void *_args) {
 
     sleep(1);
 
-    // sem_wait(&min_empty);
     sem_wait(&min_mutex);
     int *min_buf = args->min_buf;
     int *min_iptr = args->min_iptr;
@@ -63,7 +60,6 @@ void *producer(void *_args) {
     sem_post(&min_mutex);
     sem_post(&min_full);
 
-    // sem_wait(&max_empty);
     sem_wait(&max_mutex);
     int *max_buf = args->max_buf;
     int *max_iptr = args->max_iptr;
@@ -103,7 +99,6 @@ void *consumer(void *_args) {
                 }
                 *min_iptr = index;
                 sem_post(&min_mutex);
-                // sem_post(&min_empty);
             }
             break;
         case 1:
@@ -118,7 +113,6 @@ void *consumer(void *_args) {
                 }
                 *max_iptr = index;
                 sem_post(&max_mutex);
-                // sem_post(&max_empty);
             }
             break;
     }
@@ -144,12 +138,10 @@ int main(int argc, char ** argv) {
     int max_buf[4];
     int max_index = 0;
 
-    sem_init(&min_mutex, 1 ,1);
-    sem_init(&min_full, 1 ,0);
-    // sem_init(&min_empty, 0 ,4);
-    sem_init(&max_mutex, 1 ,1);
-    sem_init(&max_full, 1 ,0);
-    // sem_init(&max_empty, 0 ,4);
+    sem_open("min_mutex", O_CREAT|O_EXCL, S_IRWXU, 1);
+    sem_open("min_full", O_CREAT|O_EXCL, S_IRWXU, 0);
+    sem_open("max_mutex", O_CREAT|O_EXCL, S_IRWXU, 1);
+    sem_open("max_full", O_CREAT|O_EXCL, S_IRWXU, 0);
 
     for(int i=0; i<4; ++i) {
         struct p_args *pargs = malloc(sizeof (struct p_args) );
@@ -162,31 +154,29 @@ int main(int argc, char ** argv) {
         assert( pthread_create (&p[i], NULL, producer, pargs) == 0);
     }
     
-    // for(int i=0; i<2; ++i) {
-    //     struct c_args *cargs = malloc(sizeof (struct c_args) );
-    //     cargs->i = i;
-    //     cargs->ptr_min = &minimum;
-    //     cargs->ptr_max = &maximum;
-    //     cargs->min_buf = min_buf;
-    //     cargs->min_iptr = &min_index;
-    //     cargs->max_buf = max_buf;
-    //     cargs->max_iptr = &max_index;
-    //     assert( pthread_create (&c[i], NULL, consumer, cargs) == 0);
-    // }
+    for(int i=0; i<2; ++i) {
+        struct c_args *cargs = malloc(sizeof (struct c_args) );
+        cargs->i = i;
+        cargs->ptr_min = &minimum;
+        cargs->ptr_max = &maximum;
+        cargs->min_buf = min_buf;
+        cargs->min_iptr = &min_index;
+        cargs->max_buf = max_buf;
+        cargs->max_iptr = &max_index;
+        assert( pthread_create (&c[i], NULL, consumer, cargs) == 0);
+    }
     
     for(int i=0; i<4; ++i)
        pthread_join (p[i], NULL);
 
-    // for(int i=0; i<2; ++i)
-    //    pthread_join (c[i], NULL);
+    for(int i=0; i<2; ++i)
+       pthread_join (c[i], NULL);
 
     printf("Success! maximum = %-10d and minimum = %-10d\n", maximum, minimum);
-    sem_destroy(&min_mutex);
-    sem_destroy(&min_full);
-    // sem_destroy(&min_empty);
-    sem_destroy(&max_mutex);
-    sem_destroy(&max_full);
-    // sem_destroy(&max_empty);
+    sem_unlink("min_mutex");
+    sem_unlink("min_full");
+    sem_unlink("max_mutex");
+    sem_unlink("max_full");
 
     int min = big_buf[0];
     int max = big_buf[0];
